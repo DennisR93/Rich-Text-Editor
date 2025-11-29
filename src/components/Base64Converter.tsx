@@ -1,101 +1,199 @@
-import { useState } from 'react';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
-import { ArrowDown, ArrowUp, Copy, Check, Code, LayoutTemplate, Info } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import TextAlign from '@tiptap/extension-text-align';
+import { TwoColContainer, TwoColColumn } from '../extensions/TwoColumn';
+import { Direction } from '../extensions/Direction';
+import { ArrowDown, ArrowUp, Copy, Check, Code, Info, FileArchive, Loader2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import { compressString, decompressString } from '../utils/compression-helper';
 import { GuideModal } from './GuideModal';
+import { MenuBar } from './MenuBar';
+import { uploadImage } from '../utils/image-upload-service';
 
-interface Base64ConverterProps {
-    modules: any;
-}
+interface Base64ConverterProps { }
 
-export function Base64Converter({ modules }: Base64ConverterProps) {
+export function Base64Converter({ }: Base64ConverterProps) {
     const [base64Input, setBase64Input] = useState('');
     const [decodedContent, setDecodedContent] = useState('');
     const [encodedOutput, setEncodedOutput] = useState('');
     const [copied, setCopied] = useState(false);
     const [isSourceView, setIsSourceView] = useState(false);
     const [isGuideOpen, setIsGuideOpen] = useState(false);
+    const [useCompression, setUseCompression] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Image,
+            TextAlign.configure({
+                types: ['heading', 'paragraph', 'twoColColumn'],
+            }),
+            Direction,
+            TwoColContainer,
+            TwoColColumn,
+        ],
+        content: decodedContent,
+        onUpdate: ({ editor }) => {
+            setDecodedContent(editor.getHTML());
+        },
+        editorProps: {
+            attributes: {
+                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[300px] p-4',
+            },
+        },
+    });
+
+    // Sync editor content when decodedContent changes externally (e.g. after decode)
+    useEffect(() => {
+        if (editor && decodedContent !== editor.getHTML()) {
+            // Only update if content is different to avoid cursor jumps
+            // But here we mostly set it after decoding
+            if (!editor.isFocused) {
+                editor.commands.setContent(decodedContent);
+            }
+        }
+    }, [decodedContent, editor]);
+
+    const insertTwoColumnLayout = useCallback(() => {
+        if (editor) {
+            editor.chain().focus().insertContent({
+                type: 'twoColContainer',
+                content: [
+                    {
+                        type: 'twoColColumn',
+                        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Left content...' }] }]
+                    },
+                    {
+                        type: 'twoColColumn',
+                        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Right content...' }] }]
+                    }
+                ]
+            }).run();
+        }
+    }, [editor]);
+
+    const addImage = useCallback(() => {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+
+        input.onchange = async () => {
+            const file = input.files?.[0];
+            if (file) {
+                try {
+                    const imageUrl = await uploadImage(file);
+                    if (editor) {
+                        editor.chain().focus().setImage({ src: imageUrl }).run();
+                    }
+                } catch (error) {
+                    console.error('Error uploading image:', error);
+                    // Fallback to Data URI
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        if (typeof e.target?.result === 'string' && editor) {
+                            editor.chain().focus().setImage({ src: e.target.result }).run();
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        };
+    }, [editor]);
 
     // Helper to inject layout classes and clean borders
+    // With Tiptap, we might not need this as much if we trust the nodes, 
+    // but for "Source View" or raw HTML manipulation it's still useful.
     const injectLayoutClasses = (htmlContent: string) => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = htmlContent;
 
-        const tables = tempDiv.querySelectorAll('table');
-        tables.forEach(table => {
-            table.classList.add('two-col-table');
+        // Ensure flex containers have correct styles
+        const containers = tempDiv.querySelectorAll('.two-col-container');
+        containers.forEach(container => {
+            (container as HTMLElement).style.display = 'flex';
+            (container as HTMLElement).style.gap = '20px';
 
-            const tbody = table.querySelector('tbody');
-            if (tbody) tbody.classList.add('two-col-tbody');
+            const columns = container.querySelectorAll('.two-col-column');
+            columns.forEach((col, index) => {
+                const column = col as HTMLElement;
+                column.style.flex = '1';
+                column.style.border = 'none';
 
-            const rows = table.querySelectorAll('tr');
-            rows.forEach(row => {
-                row.classList.add('two-col-row');
-                const cells = row.querySelectorAll('td');
-
-                cells.forEach((cell, index) => {
-                    cell.style.border = 'none'; // Ensure no inline border
-                    if (index === 0) cell.classList.add('two-col-left-td');
-                    if (index === 1) cell.classList.add('two-col-right-td');
-                });
+                if (index === 0) column.classList.add('two-col-column-left');
+                if (index === 1) column.classList.add('two-col-column-right');
             });
         });
 
         return tempDiv.innerHTML;
     };
 
-    const insertTwoColumnLayout = () => {
-        const layoutHtml = `
-<table style="width: 100%; border-collapse: collapse; border: none;">
-    <tbody>
-        <tr>
-            <td style="width: 50%; vertical-align: top; padding: 1rem;">
-                <p>Left content...</p>
-            </td>
-            <td style="width: 50%; vertical-align: top; padding: 1rem;">
-                <p>Right content...</p>
-            </td>
-        </tr>
-    </tbody>
-</table>
-<p><br></p>
-`;
-        setDecodedContent(decodedContent + layoutHtml);
-    };
-
-    const handleDecode = () => {
+    const handleDecode = async () => {
         try {
             if (!base64Input.trim()) {
                 alert('Please enter a Base64 string');
                 return;
             }
-            // Decode Unicode strings correctly
-            const decoded = decodeURIComponent(escape(atob(base64Input)));
+
+            setIsProcessing(true);
+            let decoded = '';
+
+            // Try to decompress first
+            try {
+                decoded = await decompressString(base64Input);
+            } catch (lzmaError) {
+                // If LZMA fails, try standard decode
+                try {
+                    decoded = decodeURIComponent(escape(atob(base64Input)));
+                } catch (base64Error) {
+                    throw new Error('Invalid Base64 string (neither LZMA nor Standard)');
+                }
+            }
+
             // Sanitize the decoded HTML
             const sanitized = DOMPurify.sanitize(decoded);
 
-            // Inject classes immediately so they appear in Source View
+            // Inject classes/styles to ensure it looks right
             const contentWithClasses = injectLayoutClasses(sanitized);
 
             setDecodedContent(contentWithClasses);
+            if (editor) {
+                editor.commands.setContent(contentWithClasses);
+            }
             setEncodedOutput(''); // Clear previous output
         } catch (e) {
             alert('Invalid Base64 string');
+            console.error(e);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
-    const handleEncode = () => {
+    const handleEncode = async () => {
         try {
-            // Ensure classes are present and borders are removed before encoding
-            const cleanedContent = injectLayoutClasses(decodedContent);
+            setIsProcessing(true);
+            // Get content from editor if available, otherwise use state
+            const contentToEncode = editor ? editor.getHTML() : decodedContent;
 
-            // Encode Unicode strings correctly
-            const base64 = btoa(unescape(encodeURIComponent(cleanedContent)));
-            setEncodedOutput(base64);
+            // Ensure classes are present
+            const cleanedContent = injectLayoutClasses(contentToEncode);
+
+            let result = '';
+            if (useCompression) {
+                result = await compressString(cleanedContent);
+            } else {
+                // Encode Unicode strings correctly
+                result = btoa(unescape(encodeURIComponent(cleanedContent)));
+            }
+            setEncodedOutput(result);
         } catch (e) {
             console.error(e);
             alert('Error encoding content');
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -117,23 +215,24 @@ export function Base64Converter({ modules }: Base64ConverterProps) {
                         value={base64Input}
                         onChange={(e) => setBase64Input(e.target.value)}
                         className="w-full h-32 p-4 border border-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                        placeholder="Paste your Base64 string here..."
+                        placeholder="Paste your Base64 string here (Standard or Compressed)..."
                         dir="ltr" // Base64 is always LTR
                     />
                     <button
                         onClick={handleDecode}
-                        className="self-start flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm mt-2"
+                        disabled={isProcessing}
+                        className="self-start flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        <ArrowDown size={18} />
-                        Decode to Editor
+                        {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <ArrowDown size={18} />}
+                        {isProcessing ? 'Decoding...' : 'Decode to Editor'}
                     </button>
                 </div>
 
                 {/* Editor Section */}
                 <div className="flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col gap-2">
                         <label className="font-medium text-gray-700">Edit Content:</label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                             <button
                                 onClick={() => setIsSourceView(!isSourceView)}
                                 className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isSourceView
@@ -145,14 +244,6 @@ export function Base64Converter({ modules }: Base64ConverterProps) {
                                 {isSourceView ? 'Visual Editor' : 'Source Code'}
                             </button>
                             <button
-                                onClick={insertTwoColumnLayout}
-                                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-white text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                                title="Insert 2-Column Layout"
-                            >
-                                <LayoutTemplate size={16} />
-                                Insert 2 Columns
-                            </button>
-                            <button
                                 onClick={() => setIsGuideOpen(true)}
                                 className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                                 title="Layout Guide"
@@ -161,38 +252,66 @@ export function Base64Converter({ modules }: Base64ConverterProps) {
                             </button>
                         </div>
                     </div>
+
                     <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                        {!isSourceView && (
+                            <MenuBar
+                                editor={editor}
+                                insertTwoColumnLayout={insertTwoColumnLayout}
+                                addImage={addImage}
+                            />
+                        )}
+
                         {isSourceView ? (
                             <textarea
                                 value={decodedContent}
-                                onChange={(e) => setDecodedContent(e.target.value)}
+                                onChange={(e) => {
+                                    setDecodedContent(e.target.value);
+                                    if (editor) editor.commands.setContent(e.target.value);
+                                }}
                                 className="w-full h-[300px] p-4 font-mono text-sm outline-none resize-y"
                                 placeholder="HTML Source Code..."
                             />
                         ) : (
-                            <ReactQuill
-                                theme="snow"
-                                value={decodedContent}
-                                onChange={setDecodedContent}
-                                modules={modules}
-                                className="bg-white"
-                            />
+                            <div className="min-h-[300px] bg-white">
+                                <EditorContent editor={editor} />
+                            </div>
                         )}
                     </div>
-                    <button
-                        onClick={handleEncode}
-                        className="self-start flex items-center gap-2 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium shadow-sm mt-2"
-                    >
-                        <ArrowUp size={18} />
-                        Encode to Base64
-                    </button>
+
+                    <div className="flex items-center gap-4 mt-2">
+                        <button
+                            onClick={handleEncode}
+                            disabled={isProcessing}
+                            className="flex items-center gap-2 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
+                            {isProcessing ? 'Encoding...' : 'Encode to Base64'}
+                        </button>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-lg border border-transparent hover:bg-gray-100 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={useCompression}
+                                onChange={(e) => setUseCompression(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FileArchive size={16} className="text-gray-500" />
+                                Use Compression (LZ-String)
+                            </span>
+                        </label>
+                    </div>
                 </div>
 
                 {/* Output Section */}
                 {encodedOutput && (
                     <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <label className="font-medium text-gray-700">Encoded Base64 Output:</label>
+                        <label className="font-medium text-gray-700">
+                            Encoded Base64 Output {useCompression ? '(Compressed LZ-String)' : '(Standard)'}:
+                        </label>
                         <div className="relative">
                             <textarea
                                 readOnly
