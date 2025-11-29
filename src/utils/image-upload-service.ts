@@ -12,8 +12,6 @@ export const uploadImage = async (file: File): Promise<string> => {
     const rawKey = import.meta.env.VITE_IMGBB_API_KEY || '';
     const API_KEY = rawKey.replace(/['"\s]/g, '');
 
-    console.log('API_KEY', API_KEY);
-
     if (!API_KEY) {
         console.warn('Missing VITE_IMGBB_API_KEY in .env file.');
         throw new Error('Missing ImgBB API Key');
