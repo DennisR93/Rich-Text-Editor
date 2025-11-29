@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Editor Overrides */
+.ql-container {
+  font-size: 16px !important;
+  font-family: inherit !important;
+}
+
+.ql-editor {
+  min-height: 300px;
+}
+
+/* RTL Support */
+.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+.rtl-editor .ql-editor {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl-editor .ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) svg {
+  right: 0;
+  left: auto;
+}
