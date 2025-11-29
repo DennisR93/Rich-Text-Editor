@@ -62,19 +62,7 @@ function App() {
     localStorage.setItem('rich_text_editor_history', JSON.stringify(newHistory));
   };
 
-  // Custom Toolbar Options
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      [{ 'direction': 'rtl' }], // Add direction toggle
-      ['link', 'image'], // Image button allows uploading or pasting images
-      ['clean']
-    ],
-    table: true, // Enable table module
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
@@ -92,10 +80,9 @@ function App() {
             content={content}
             setContent={setContent}
             saveContent={saveContent}
-            modules={modules}
           />
 
-          <Base64Converter modules={modules} />
+          <Base64Converter />
         </div>
 
         {showHistory && (
