@@ -115,9 +115,7 @@ export function EditorArea({
                 // Get the cleaned HTML directly from Tiptap
                 const cleanedContent = editor.getHTML();
 
-                console.log('--- Generated HTML Source ---');
-                console.log(cleanedContent);
-                console.log('-----------------------------');
+
 
                 let base64 = '';
                 if (useCompression) {
