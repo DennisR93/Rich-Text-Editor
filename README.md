@@ -2,6 +2,8 @@
 
 A modern, powerful Rich Text Editor built with React, TypeScript, and Tailwind CSS. This tool allows users to create rich content, manage multi-column layouts, and convert everything into Base64 strings for easy embedding in other applications (like emails or CMS).
 
+**[Live Demo](https://DennisR93.github.io/Rich-Text-Editor/)**
+
 ## Features
 
 -   **Rich Text Editing**: Full formatting capabilities (bold, italic, lists, links, images) using ReactQuill.
