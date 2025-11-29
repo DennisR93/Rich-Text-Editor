@@ -1,8 +1,19 @@
-import { useState } from 'react';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
-import { Save, Copy, Check, Code, LayoutTemplate, Loader2, RefreshCw, Info } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import TextAlign from '@tiptap/extension-text-align';
+import { TwoColContainer, TwoColColumn } from '../extensions/TwoColumn';
+import { Direction } from '../extensions/Direction';
+import { ImageUploadPaste } from '../extensions/ImageUploadPaste';
+import {
+    Save, Copy, Check, Code, Loader2, RefreshCw, Info, FileArchive
+} from 'lucide-react';
+import { compressString } from '../utils/compression-helper';
 import { GuideModal } from './GuideModal';
+import { uploadImage } from '../utils/image-upload-service';
+
+import { MenuBar } from './MenuBar';
 
 interface EditorAreaProps {
     title: string;
@@ -10,75 +21,112 @@ interface EditorAreaProps {
     content: string;
     setContent: (content: string) => void;
     saveContent: () => void;
-    modules: any;
 }
 
 export function EditorArea({
-    title, setTitle, content, setContent, saveContent, modules
+    title, setTitle, content, setContent, saveContent
 }: EditorAreaProps) {
     const [isSourceView, setIsSourceView] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedBase64, setGeneratedBase64] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const [isGuideOpen, setIsGuideOpen] = useState(false);
+    const [useCompression, setUseCompression] = useState(false);
+
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Image,
+            TextAlign.configure({
+                types: ['heading', 'paragraph', 'twoColColumn'],
+            }),
+            Direction,
+            TwoColContainer,
+            TwoColColumn,
+            ImageUploadPaste,
+        ],
+        content: content,
+        onUpdate: ({ editor }) => {
+            setContent(editor.getHTML());
+        },
+        editorProps: {
+            attributes: {
+                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[300px] p-4',
+            },
+        },
+    });
 
     const insertTwoColumnLayout = () => {
-        const layoutHtml = `
-<table style="width: 100%; border-collapse: collapse; border: none;">
-    <tbody>
-        <tr>
-            <td style="width: 50%; vertical-align: top; padding: 1rem;">
-                <p>Left content...</p>
-            </td>
-            <td style="width: 50%; vertical-align: top; padding: 1rem;">
-                <p>Right content...</p>
-            </td>
-        </tr>
-    </tbody>
-</table>
-<p><br></p>
-`;
-        setContent(content + layoutHtml);
+        if (editor) {
+            editor.chain().focus().insertContent({
+                type: 'twoColContainer',
+                content: [
+                    {
+                        type: 'twoColColumn',
+                        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Left content...' }] }]
+                    },
+                    {
+                        type: 'twoColColumn',
+                        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Right content...' }] }]
+                    }
+                ]
+            }).run();
+        }
     };
 
-    const handleGenerateBase64 = () => {
+    const addImage = useCallback(() => {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+
+        input.onchange = async () => {
+            const file = input.files?.[0];
+            if (file) {
+                try {
+                    const imageUrl = await uploadImage(file);
+                    if (editor) {
+                        editor.chain().focus().setImage({ src: imageUrl }).run();
+                    }
+                } catch (error) {
+                    console.error('Error uploading image:', error);
+                    // Fallback to Data URI
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        if (typeof e.target?.result === 'string' && editor) {
+                            editor.chain().focus().setImage({ src: e.target.result }).run();
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        };
+    }, [editor]);
+
+    const handleGenerateBase64 = async () => {
+        if (!editor) return;
+
         setIsGenerating(true);
         setGeneratedBase64(null);
 
-        // Simulate "thinking" delay
-        setTimeout(() => {
+        // Simulate "thinking" delay + async compression
+        setTimeout(async () => {
             try {
-                // Create a temporary DOM element to manipulate the HTML
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = content;
+                // Get the cleaned HTML directly from Tiptap
+                const cleanedContent = editor.getHTML();
 
-                // Find all tables and add classes
-                const tables = tempDiv.querySelectorAll('table');
-                tables.forEach(table => {
-                    table.classList.add('two-col-table');
+                console.log('--- Generated HTML Source ---');
+                console.log(cleanedContent);
+                console.log('-----------------------------');
 
-                    const tbody = table.querySelector('tbody');
-                    if (tbody) tbody.classList.add('two-col-tbody');
+                let base64 = '';
+                if (useCompression) {
+                    base64 = await compressString(cleanedContent);
+                } else {
+                    // Encode Unicode strings correctly
+                    base64 = btoa(unescape(encodeURIComponent(cleanedContent)));
+                }
 
-                    const rows = table.querySelectorAll('tr');
-                    rows.forEach(row => {
-                        row.classList.add('two-col-row');
-                        const cells = row.querySelectorAll('td');
-
-                        // Add classes to specific cells and remove borders
-                        cells.forEach((cell, index) => {
-                            cell.style.border = 'none';
-                            if (index === 0) cell.classList.add('two-col-left-td');
-                            if (index === 1) cell.classList.add('two-col-right-td');
-                        });
-                    });
-                });
-
-                // Get the cleaned HTML
-                const cleanedContent = tempDiv.innerHTML;
-
-                // Encode Unicode strings correctly
-                const base64 = btoa(unescape(encodeURIComponent(cleanedContent)));
                 setGeneratedBase64(base64);
             } catch (e) {
                 console.error(e);
@@ -86,7 +134,7 @@ export function EditorArea({
             } finally {
                 setIsGenerating(false);
             }
-        }, 1000);
+        }, 100);
     };
 
     const handleCopyBase64 = () => {
@@ -124,14 +172,6 @@ export function EditorArea({
                     {isSourceView ? 'Visual Editor' : 'Source Code'}
                 </button>
                 <button
-                    onClick={insertTwoColumnLayout}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-white text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                    title="Insert 2-Column Layout"
-                >
-                    <LayoutTemplate size={16} />
-                    Insert 2 Columns
-                </button>
-                <button
                     onClick={() => setIsGuideOpen(true)}
                     className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                     title="Layout Guide"
@@ -142,27 +182,34 @@ export function EditorArea({
 
             <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                {!isSourceView && (
+                    <MenuBar
+                        editor={editor}
+                        insertTwoColumnLayout={insertTwoColumnLayout}
+                        addImage={addImage}
+                    />
+                )}
+
                 {isSourceView ? (
                     <textarea
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        onChange={(e) => {
+                            setContent(e.target.value);
+                            editor?.commands.setContent(e.target.value);
+                        }}
                         className="w-full h-[500px] p-4 font-mono text-sm outline-none resize-y"
                         placeholder="HTML Source Code..."
                     />
                 ) : (
-                    <ReactQuill
-                        theme="snow"
-                        value={content}
-                        onChange={setContent}
-                        modules={modules}
-                        className="bg-white"
-                    />
+                    <div className="min-h-[500px] bg-white">
+                        <EditorContent editor={editor} />
+                    </div>
                 )}
             </div>
 
             <div className="flex flex-col gap-4 mt-2">
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
                     <button
                         onClick={saveContent}
                         className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium shadow-sm"
@@ -172,23 +219,38 @@ export function EditorArea({
                     </button>
 
                     {!generatedBase64 ? (
-                        <button
-                            onClick={handleGenerateBase64}
-                            disabled={isGenerating}
-                            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isGenerating ? (
-                                <>
-                                    <Loader2 size={18} className="animate-spin" />
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <RefreshCw size={18} />
-                                    Generate Base64
-                                </>
-                            )}
-                        </button>
+                        <>
+                            <button
+                                onClick={handleGenerateBase64}
+                                disabled={isGenerating}
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        Generating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={18} />
+                                        Generate Base64
+                                    </>
+                                )}
+                            </button>
+
+                            <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-lg border border-transparent hover:bg-gray-100 transition-colors ml-2">
+                                <input
+                                    type="checkbox"
+                                    checked={useCompression}
+                                    onChange={(e) => setUseCompression(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                    <FileArchive size={16} className="text-gray-500" />
+                                    Use Compression (LZ-String)
+                                </span>
+                            </label>
+                        </>
                     ) : (
                         <div className="flex gap-2">
                             <button
@@ -214,7 +276,9 @@ export function EditorArea({
 
                 {generatedBase64 && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Generated Base64 String:</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Generated Base64 String {useCompression ? '(Compressed LZ-String)' : '(Standard)'}:
+                        </label>
                         <textarea
                             readOnly
                             value={generatedBase64}
