@@ -105,8 +105,6 @@ export function Base64Converter({ }: Base64ConverterProps) {
     }, [editor]);
 
     // Helper to inject layout classes and clean borders
-    // With Tiptap, we might not need this as much if we trust the nodes, 
-    // but for "Source View" or raw HTML manipulation it's still useful.
     const injectLayoutClasses = (htmlContent: string) => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = htmlContent;
