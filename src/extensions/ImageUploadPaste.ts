@@ -15,7 +15,7 @@ export const ImageUploadPaste = Extension.create({
                         const files = event.clipboardData?.files;
                         const html = event.clipboardData?.getData('text/html');
 
-                        // 1. Handle direct file paste (e.g. screenshot or copied image file)
+                        // Handle direct file paste (e.g. screenshot or copied image file)
                         if (files && files.length > 0) {
                             const images = Array.from(files).filter(file => file.type.startsWith('image/'));
 
@@ -45,7 +45,7 @@ export const ImageUploadPaste = Extension.create({
                             }
                         }
 
-                        // 2. Handle HTML paste with images (e.g. copied from web page)
+                        // Handle HTML paste with images (e.g. copied from web page)
                         if (html && html.includes('<img')) {
                             event.preventDefault();
 
