@@ -85,7 +85,7 @@ export function GuideModal({ isOpen, onClose }: GuideModalProps) {
 
                     <div className="space-y-8">
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-gray-900 text-lg">Structure & Classes</h3>
+                            <h3 className="font-semibold text-gray-900 text-lg text-left">Structure & Classes</h3>
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 font-mono text-sm text-gray-700">
                                 <ul className="space-y-3">
                                     <li className="flex items-start gap-2">
