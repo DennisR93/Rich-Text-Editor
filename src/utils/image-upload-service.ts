@@ -18,7 +18,7 @@ export const uploadImage = async (file: File): Promise<string> => {
     }
 
     try {
-        const response = await fetch(`https://api.imgbb.com/1/upload?expiration=600&key=${API_KEY}`, {
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
             method: 'POST',
             body: formData,
         });
