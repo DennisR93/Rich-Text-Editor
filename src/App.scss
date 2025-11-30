@@ -105,7 +105,8 @@
     }
   }
 
-  .two-col-column {
+  .two-col-column-left,
+  .two-col-column-right {
     flex: 1;
     padding: 1rem;
     border: 1px dashed #e5e7eb;
