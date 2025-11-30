@@ -3,8 +3,9 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
-import { TwoColContainer, TwoColColumn } from '../extensions/TwoColumn';
+import { TwoColContainer, TwoColColumnLeft, TwoColColumnRight } from '../extensions/TwoColumn';
 import { Direction } from '../extensions/Direction';
+import { ImageUploadPaste } from '../extensions/ImageUploadPaste';
 import { ArrowDown, ArrowUp, Copy, Check, Code, Info, FileArchive, Loader2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { compressString, decompressString } from '../utils/compression-helper';
@@ -29,11 +30,13 @@ export function Base64Converter({ }: Base64ConverterProps) {
             StarterKit,
             Image,
             TextAlign.configure({
-                types: ['heading', 'paragraph', 'twoColColumn'],
+                types: ['heading', 'paragraph', 'twoColColumnLeft', 'twoColColumnRight'],
             }),
             Direction,
             TwoColContainer,
-            TwoColColumn,
+            TwoColColumnLeft,
+            TwoColColumnRight,
+            ImageUploadPaste,
         ],
         content: decodedContent,
         onUpdate: ({ editor }) => {
@@ -63,11 +66,11 @@ export function Base64Converter({ }: Base64ConverterProps) {
                 type: 'twoColContainer',
                 content: [
                     {
-                        type: 'twoColColumn',
+                        type: 'twoColColumnLeft',
                         content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Left content...' }] }]
                     },
                     {
-                        type: 'twoColColumn',
+                        type: 'twoColColumnRight',
                         content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Right content...' }] }]
                     }
                 ]
@@ -115,15 +118,18 @@ export function Base64Converter({ }: Base64ConverterProps) {
             (container as HTMLElement).style.display = 'flex';
             (container as HTMLElement).style.gap = '20px';
 
-            const columns = container.querySelectorAll('.two-col-column');
-            columns.forEach((col, index) => {
-                const column = col as HTMLElement;
-                column.style.flex = '1';
-                column.style.border = 'none';
+            const leftColumn = container.querySelector('.two-col-column-left') as HTMLElement;
+            const rightColumn = container.querySelector('.two-col-column-right') as HTMLElement;
 
-                if (index === 0) column.classList.add('two-col-column-left');
-                if (index === 1) column.classList.add('two-col-column-right');
-            });
+            if (leftColumn) {
+                leftColumn.style.flex = '1';
+                leftColumn.style.border = 'none';
+            }
+
+            if (rightColumn) {
+                rightColumn.style.flex = '1';
+                rightColumn.style.border = 'none';
+            }
         });
 
         return tempDiv.innerHTML;
