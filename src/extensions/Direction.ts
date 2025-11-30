@@ -25,7 +25,7 @@ export const Direction = Extension.create<DirectionOptions>({
 
     addOptions() {
         return {
-            types: ['paragraph', 'heading', 'bulletList', 'orderedList', 'blockquote', 'twoColColumn'],
+            types: ['paragraph', 'heading', 'bulletList', 'orderedList', 'blockquote', 'twoColColumnLeft', 'twoColColumnRight'],
             defaultDirection: 'auto',
         };
     },
