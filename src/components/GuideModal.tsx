@@ -24,7 +24,8 @@ export function GuideModal({ isOpen, onClose }: GuideModalProps) {
     flex-direction: column !important;
   }
   
-  .two-col-column {
+  .two-col-column-left,
+  .two-col-column-right {
     width: 100% !important;
     margin-bottom: 20px;
   }
@@ -37,7 +38,8 @@ export function GuideModal({ isOpen, onClose }: GuideModalProps) {
   width: 100%;
 }
 
-.two-col-column {
+.two-col-column-left,
+.two-col-column-right {
   flex: 1;
 }
 
@@ -94,10 +96,6 @@ export function GuideModal({ isOpen, onClose }: GuideModalProps) {
                                     <li className="flex items-start gap-2">
                                         <code className="bg-white px-1.5 py-0.5 rounded border border-gray-200 text-blue-600">.two-col-container</code>
                                         <span>The main flex container</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <code className="bg-white px-1.5 py-0.5 rounded border border-gray-200 text-blue-600">.two-col-column</code>
-                                        <span>The column wrapper</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <code className="bg-white px-1.5 py-0.5 rounded border border-gray-200 text-blue-600">.two-col-column-left</code>
