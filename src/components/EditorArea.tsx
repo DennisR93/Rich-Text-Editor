@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
-import { TwoColContainer, TwoColColumn } from '../extensions/TwoColumn';
+import { TwoColContainer, TwoColColumnLeft, TwoColColumnRight } from '../extensions/TwoColumn';
 import { Direction } from '../extensions/Direction';
 import { ImageUploadPaste } from '../extensions/ImageUploadPaste';
 import {
@@ -38,11 +38,12 @@ export function EditorArea({
             StarterKit,
             Image,
             TextAlign.configure({
-                types: ['heading', 'paragraph', 'twoColColumn'],
+                types: ['heading', 'paragraph', 'twoColColumnLeft', 'twoColColumnRight'],
             }),
             Direction,
             TwoColContainer,
-            TwoColColumn,
+            TwoColColumnLeft,
+            TwoColColumnRight,
             ImageUploadPaste,
         ],
         content: content,
@@ -62,11 +63,11 @@ export function EditorArea({
                 type: 'twoColContainer',
                 content: [
                     {
-                        type: 'twoColColumn',
+                        type: 'twoColColumnLeft',
                         content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Left content...' }] }]
                     },
                     {
-                        type: 'twoColColumn',
+                        type: 'twoColColumnRight',
                         content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Right content...' }] }]
                     }
                 ]
